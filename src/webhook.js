@@ -51,9 +51,9 @@ async function processWebhookData(data, res) {
     // Updated to use new disposition form structure
     const sql = `INSERT INTO forms_new 
       (company, name, contact_number, email, call_type, disposition_1, disposition_2, 
-       disposition_2_custom, query, queue_id, queue_name, agent_id, agent_ext, 
+       query, queue_id, queue_name, agent_id, agent_ext, 
        caller_id_name, caller_id_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     
     // Initialize empty values for form fields - will be filled by user
     const company = "";
@@ -63,7 +63,6 @@ async function processWebhookData(data, res) {
     const call_type = ""; // Will be selected by user
     const disposition_1 = ""; // Will be selected by user
     const disposition_2 = ""; // Will be selected by user
-    const disposition_2_custom = null;
     const query = "";
 
     await pool.execute(sql, [
@@ -74,7 +73,6 @@ async function processWebhookData(data, res) {
       call_type,
       disposition_1,
       disposition_2,
-      disposition_2_custom,
       query,
       qid || '',
       qname || '',

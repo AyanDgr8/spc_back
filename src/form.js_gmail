@@ -19,47 +19,48 @@ export const pool = mysql.createPool({
 });
 
 // 2. Mail transport -------------------------------------------------
-// Primary configuration for Office365
+// Primary configuration for Office365 (commented out)
+// const transporter = nodemailer.createTransport({
+//   host: 'smtp.office365.com',
+//   port: 587,
+//   secure: false, // true for 465, false for other ports
+//   auth: {
+//     user: process.env.EMAIL_USER || 'noreply-multycomm@spcfz.ae',
+//     pass: process.env.EMAIL_PASSWORD || 'wwsbfysyndyqqgmt',
+//   },
+//   tls: {
+//     ciphers: 'SSLv3',
+//     rejectUnauthorized: false
+//   },
+//   debug: true, // Enable debug output
+//   logger: true // Log to console
+// });
+
+// Gmail configuration (active)
 const transporter = nodemailer.createTransport({
-  host: 'smtp.office365.com',
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'noreply-multycomm@spcfz.ae',
-    pass: process.env.EMAIL_PASSWORD || 'wwsbfysyndyqqgmt',
-  },
-  tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
+    user: process.env.EMAIL_USER || 'ayan@multycomm.com',
+    pass: process.env.EMAIL_PASSWORD || 'snwb pexk avoq lnyl', // Gmail app password
   },
   debug: true, // Enable debug output
   logger: true // Log to console
 });
-
-// Alternative Gmail configuration (uncomment if Office365 fails)
-// const transporter = nodemailer.createTransport({
-//   service: 'gmail',
-//   auth: {
-//     user: 'your-gmail@gmail.com',
-//     pass: 'your-app-password', // Gmail app password
-//   },
-// });
 
 // Test SMTP connection
 transporter.verify((error, success) => {
   if (error) {
     console.log("❌ SMTP Error:", error.message);
     console.log("\n📧 SMTP Configuration:");
-    console.log("- Host: smtp.office365.com");
-    console.log("- Port: 587");
-    console.log("- User:", process.env.EMAIL_USER || 'noreply-multycomm@spcfz.ae');
-    console.log("- Password length:", (process.env.EMAIL_PASSWORD || 'wwsbfysyndyqqgmt').length);
+    console.log("- Service: Gmail");
+    console.log("- User:", process.env.EMAIL_USER || 'ayan@multycomm.com');
+    console.log("- Password length:", (process.env.EMAIL_PASSWORD || 'snwb pexk avoq lnyl').length);
     console.log("\n🔧 Troubleshooting suggestions:");
-    console.log("1. Verify the email account exists and is active");
+    console.log("1. Verify the Gmail account exists and is active");
     console.log("2. Check if 2FA is enabled - you may need an app password");
-    console.log("3. Ensure SMTP is enabled for this account");
+    console.log("3. Ensure 'Less secure app access' is enabled (if not using app password)");
     console.log("4. Try using the account's full credentials");
-    console.log("5. Contact IT admin to verify account permissions");
+    console.log("5. Check Gmail SMTP settings");
   } else {
     console.log("✅ SMTP connection successful!");
   }
@@ -187,9 +188,6 @@ export async function handleFormSubmission(data) {
     agent_id || null, agent_ext || null, caller_id_name || null, caller_id_number || null
   ]);
 
-  // Send final submission data to external database/API
-  await sendFinalSubmissionData(data, caller_id_number);
-
   // ---- Send email ----
   // Skip email if it's a custom input without email or empty email
   if (!targetEmail || targetEmail === '') {
@@ -230,79 +228,6 @@ export async function handleFormSubmission(data) {
   } catch (error) {
     console.error('Error sending email:', error);
     // Don't throw error - form submission should still succeed even if email fails
-  }
-}
-
-/**
- * Send final submission data to external database/API
- * This function is triggered automatically when a form is submitted
- * @param {Object} submissionData - Complete form submission data
- * @param {string} cidnum - Caller ID number parameter
- */
-async function sendFinalSubmissionData(submissionData, cidnum) {
-  try {
-    // Prepare the final submission payload
-    const finalSubmissionPayload = {
-      // Basic form data
-      company: submissionData.company,
-      name: submissionData.name,
-      contact_number: submissionData.contact_number,
-      email: submissionData.email,
-      
-      // Disposition data
-      call_type: submissionData.call_type,
-      disposition_1: submissionData.disposition_1,
-      disposition_2: submissionData.disposition_2,
-      query: submissionData.query,
-      
-      // Call center data
-      queue_id: submissionData.queue_id,
-      queue_name: submissionData.queue_name,
-      agent_id: submissionData.agent_id,
-      agent_ext: submissionData.agent_ext,
-      caller_id_name: submissionData.caller_id_name,
-      caller_id_number: cidnum, // The cidnum parameter
-      
-      // Additional metadata
-      submission_timestamp: new Date().toISOString(),
-      
-      // Get the email routing information
-      target_email: await getDispositionEmail(submissionData.call_type, submissionData.disposition_1, submissionData.disposition_2),
-      department: await getDepartmentByEmail((await getDispositionEmail(submissionData.call_type, submissionData.disposition_1, submissionData.disposition_2)).email)
-    };
-
-    // Log the final submission data
-    console.log('Final Submission Data:', JSON.stringify(finalSubmissionPayload, null, 2));
-
-    // TODO: Replace this with your actual external API endpoint
-    // Example: Send to external database/API
-    /*
-    const response = await fetch('YOUR_EXTERNAL_API_ENDPOINT', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_API_TOKEN' // if needed
-      },
-      body: JSON.stringify(finalSubmissionPayload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`External API error: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    console.log('Successfully sent to external API:', result);
-    */
-
-    // For now, just log success
-    console.log(`[${new Date().toISOString()}] Final submission data prepared for cidnum: ${cidnum}`);
-    
-    return finalSubmissionPayload;
-    
-  } catch (error) {
-    console.error('Error sending final submission data:', error);
-    // Don't throw error - form submission should still succeed even if external API fails
-    return null;
   }
 }
 

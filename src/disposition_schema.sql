@@ -1,3 +1,6 @@
+-- src/disposition_schema.sql
+
+
 -- New Disposition Schema for Customer Service Form
 -- This schema supports cascading dropdowns: Call Type → Disposition-1 → Disposition-2
 
@@ -14,7 +17,6 @@ CREATE TABLE IF NOT EXISTS forms_new (
   call_type VARCHAR(50) NOT NULL,
   disposition_1 VARCHAR(100) NOT NULL,
   disposition_2 VARCHAR(100) NOT NULL,
-  disposition_2_custom TEXT NULL, -- For "Others" option
   query TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
