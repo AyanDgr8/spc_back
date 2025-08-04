@@ -4,6 +4,8 @@ import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import { setupWebhookRoutes } from './webhook.js';
+import https from 'https';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -448,9 +450,39 @@ export async function findFormByQueueAndCaller(queueId, callerNumber) {
 import express from 'express';
 import cors from 'cors';
 
+// SSL Certificate Management
+const loadSSLCertificates = () => {
+  try {
+    const sslOptions = {
+      key: fs.readFileSync('ssl/privkey.pem'),
+      cert: fs.readFileSync('ssl/fullchain.pem')
+    };
+    
+    console.log("✓ SSL certificates loaded successfully");
+    return sslOptions;
+  } catch (error) {
+    console.error("✗ Error loading SSL certificates:", error.message);
+    
+    // Check if SSL files exist
+    const sslFiles = ['ssl/privkey.pem', 'ssl/fullchain.pem'];
+    sslFiles.forEach(file => {
+      if (!fs.existsSync(file)) {
+        console.error(`  SSL file not found: ${file}`);
+      }
+    });
+    
+    console.log("  Falling back to HTTP server");
+    return null;
+  }
+};
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const app = express();
   const PORT = process.env.PORT || 8989;
+  const HOST = process.env.HOST || '0.0.0.0';
+  const PUBLIC_URL = process.env.PUBLIC_URL || `https://${HOST}:${PORT}`;
+
+  console.log(`🚀 Server will start on: ${PUBLIC_URL}`);
 
   app.use(cors());
   app.use(express.json());
@@ -545,5 +577,46 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   setupWebhookRoutes(app);
 
-  app.listen(PORT, () => console.log(`API listening on port ${PORT}`));
+  // Load SSL certificates
+  const sslOptions = loadSSLCertificates();
+  
+  // Only use HTTPS if PUBLIC_URL starts with https://
+  const useHTTPS = PUBLIC_URL.startsWith('https://');
+
+  if (sslOptions && useHTTPS) {
+    const server = https.createServer(sslOptions, app);
+    server.listen(PORT, HOST, () => {
+      console.log(`🔒 HTTPS server running at ${PUBLIC_URL}`);
+      console.log(`📡 Server accessible on all network interfaces (${HOST}:${PORT})`);
+    });
+    
+    server.on('error', (err) => {
+      console.error('❌ HTTPS Server error:', err);
+      if (err.code === 'EADDRINUSE') {
+        console.error(`  Port ${PORT} is already in use. Try a different port.`);
+      } else if (err.code === 'EACCES') {
+        console.error(`  Permission denied. Port ${PORT} might require sudo privileges.`);
+      }
+      process.exit(1);
+    });
+  } else {
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`🌐 HTTP server running at ${PUBLIC_URL}`);
+      if (!useHTTPS) {
+        console.log(`  Running in HTTP mode (PUBLIC_URL is set to HTTP)`);
+      } else {
+        console.log(`  Running in HTTP mode (no SSL certificates found)`);
+      }
+    });
+    
+    server.on('error', (err) => {
+      console.error('❌ HTTP Server error:', err);
+      if (err.code === 'EADDRINUSE') {
+        console.error(`  Port ${PORT} is already in use. Try a different port.`);
+      } else if (err.code === 'EACCES') {
+        console.error(`  Permission denied. Port ${PORT} might require sudo privileges.`);
+      }
+      process.exit(1);
+    });
+  }
 }
